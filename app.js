@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken'
 import cors from 'cors';
 import morgan from 'morgan';
 import {Server} from 'socket.io'
+import { createServer } from 'http';
 
 
 import {connectToDatabase} from './db/connection.js';
@@ -16,53 +17,29 @@ import {Messages} from './models/Messages.js';
 
 
 
-
 config();
 
-console.log(process.env.PORT);
-console.log(process.env.DB_PASSWORD,"-------------");
-console.log(process.env.PORT);
 const app = express();
 
-// Connect DB
-connectToDatabase();
-
+const httpServer = createServer(app);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cors());
-app.use(morgan("tiny"))
+app.use(morgan("tiny"));
 
-
-
-const io = new Server(
-    process.env.IOPORT,{
-        cors: {
-            //TODO chamge this to real frontend url
-            origin:"*"
-        }
-    }
-)
-io.on('error', (error) => {
-    if (error.code === 'EADDRINUSE') {
-        console.error(`Port ${PORT} is already in use`);
-    } else {
-        console.error(`Error occurred: ${error.message}`);
+const io = new Server(httpServer, {
+    cors: {
+        origin: "*", // Allow all origins
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
-// io()
+const port = process.env.PORT || 3000;
+console.log(`Server running on port ${port}`);
 
-// Import Files
-
-
-// app Use
-
-
-const port = process.env.PORT ;
-console.log(port);
-
-// Socket.io
+// Socket.IO
 let users = [];
 io.on('connection', socket => {
     console.log('User connected', socket.id);
@@ -88,22 +65,21 @@ io.on('connection', socket => {
                 receiverId,
                 user: { id: user._id, fullName: user.fullName, email: user.email }
             });
-            }else {
-                io.to(sender.socketId).emit('getMessage', {
-                    senderId,
-                    message,
-                    conversationId,
-                    receiverId,
-                    user: { id: user._id, fullName: user.fullName, email: user.email }
-                });
-            }
-        });
+        } else {
+            io.to(sender.socketId).emit('getMessage', {
+                senderId,
+                message,
+                conversationId,
+                receiverId,
+                user: { id: user._id, fullName: user.fullName, email: user.email }
+            });
+        }
+    });
 
     socket.on('disconnect', () => {
         users = users.filter(user => user.socketId !== socket.id);
         io.emit('getUsers', users);
     });
-    // io.emit('getUsers', socket.userId);
 });
 
 // Routes
@@ -261,6 +237,8 @@ app.get('/api/users/:userId', async (req, res) => {
     }
 })
 
-app.listen(port, () => {
+httpServer.listen(port,() => {
+    // Connect DB
+    connectToDatabase();
     console.log('listening on port ' + port);
 })
