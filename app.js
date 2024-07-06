@@ -1,10 +1,20 @@
-const express = require('express');
-// require('dotenv').config();
-const bcryptjs = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const cors = require('cors');
-const {config} = require("dotenv")
-const morgan = require('morgan')
+
+
+import express from 'express';
+import { config } from 'dotenv';
+import bcryptjs from 'bcryptjs'
+import jwt from 'jsonwebtoken'
+import cors from 'cors';
+import morgan from 'morgan';
+import {Server} from 'socket.io'
+
+
+import {connectToDatabase} from './db/connection.js';
+import {Users} from './models/Users.js';
+import {Conversations} from './models/Conversations.js';
+import {Messages} from './models/Messages.js';
+
+
 
 
 config();
@@ -14,24 +24,36 @@ console.log(process.env.DB_PASSWORD,"-------------");
 console.log(process.env.PORT);
 const app = express();
 
+// Connect DB
+connectToDatabase();
+
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cors());
 app.use(morgan("tiny"))
 
-const io = require('socket.io')(8080, {
-    cors: {
-        origin: 'http://localhost:3000',
+
+
+const io = new Server(
+    process.env.IOPORT,{
+        cors: {
+            origin:"http://localhost:3000"
+        }
+    }
+)
+io.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use`);
+    } else {
+        console.error(`Error occurred: ${error.message}`);
     }
 });
 
-// Connect DB
-require('./db/connection');
+// io()
 
 // Import Files
-const Users = require('./models/Users');
-const Conversations = require('./models/Conversations');
-const Messages = require('./models/Messages');
+
 
 // app Use
 
