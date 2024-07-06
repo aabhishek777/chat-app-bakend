@@ -89,7 +89,8 @@ app.get('/', (req, res) => {
 
 app.post('/api/register', async (req, res, next) => {
     try {
-        const { fullName, email, password } = req.body;
+        const {fullName,email,password} = req.body;
+        console.log(email,password);
 
         if (!fullName || !email || !password) {
             res.status(400).send('Please fill all required fields');
@@ -98,13 +99,33 @@ app.post('/api/register', async (req, res, next) => {
             if (isAlreadyExist) {
                 res.status(400).send('User already exists');
             } else {
-                const newUser = new Users({ fullName, email });
-                bcryptjs.hash(password, 10, (err, hashedPassword) => {
-                    newUser.set('password', hashedPassword);
-                    newUser.save();
-                    next();
+                const user = new Users({fullName,email});
+                
+                try {
+                    const pass =await bcryptjs.hash(password,10);
+                    user.password = pass;
+                } catch (error) {
+                    console.log(error);
+                    return;
+                }
+
+                const userr =await user.save();
+                console.log(userr);
+                
+                const payload = {
+                    userId: userr._id,
+                    email: userr.email
+                }
+                const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY || 'THIS_IS_A_JWT_SECRET_KEY';
+
+                jwt.sign(payload, JWT_SECRET_KEY, { expiresIn: 84600 }, async (err, token) => {
+                    await Users.updateOne({ _id: userr._id }, {
+                        $set: { token }
+                    })
+                    userr.save();
+                    return res.status(200).json({ user: { id: userr._id, email: userr.email, fullName: userr.fullName }, token: token })
                 })
-                return res.status(200).send('User registered successfully');
+               
             }
         }
 
@@ -117,6 +138,7 @@ app.post('/api/login', async (req, res, next) => {
     try {
         const { email, password } = req.body;
 
+        console.log(email,password);
         if (!email || !password) {
             res.status(400).send('Please fill all required fields');
         } else {
