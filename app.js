@@ -38,7 +38,8 @@ app.use(morgan("tiny"))
 const io = new Server(
     process.env.IOPORT,{
         cors: {
-            origin:"http://localhost:3000"
+            //TODO chamge this to real frontend url
+            origin:"*"
         }
     }
 )
